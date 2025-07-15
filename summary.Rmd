@@ -1,0 +1,490 @@
+---
+title: "Aero Duel Tournament 2025"
+output:
+  html_document:
+    df_print: paged
+  word_document: default
+  pdf_document: default
+  html_notebook: default
+---
+
+This is an simple analysis for [**Aerowalk_Duel_Tournament**](https://www.quakeworld.nu/wiki/Aerowalk_Duel_Tournament/Playoff_Div_1 "Aerowalk_Duel_Tournament/Playoff_Div_1"){.uri} data for Div1 playoff games. Dataset based on the output from mvd demos parser using the mvd to JSON [**parser tool**](https://github.com/witxka/mvdToJSON)
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+# Prepare libraries and load data frames from prepared csv
+library("ggplot2")
+library("gt")
+library("gtExtras")
+library("dplyr")
+library("corrplot")
+library("reshape2")  # For melt()
+winners_df <- read.csv("~/winners.csv")
+losers_df <- read.csv("~/loosers.csv")
+join_df <- rbind(winners_df, losers_df)
+
+
+```
+
+```{r}
+gtsummary::tbl_summary(join_df) %>% 
+  gtsummary::as_gt() %>%
+  gt::tab_header(title = "Dataset Summary Table")
+```
+
+# Some summaries for interesting parameters:
+
+```{r}
+join_df %>%
+  select(ra, ya, ga,mh) %>%  # Select specific columns
+  summary() %>%
+  knitr::kable(caption = "Armors and health summary") %>%
+  kableExtra::kable_styling()
+```
+
+```{r}
+join_df %>%
+  select(lg,rl_ad) %>%  # Select specific columns
+  summary() %>%
+  knitr::kable(caption = "LG and rl_ad summary") %>%
+  kableExtra::kable_styling()
+
+```
+
+```{r}
+ggplot(join_df, aes(x = lg)) +
+  geom_histogram(aes(y = after_stat(density)), 
+                 binwidth = 0.5, 
+                 fill = "lightblue", 
+                 color = "black") +
+  geom_density(alpha = 0.2, fill = "blue") +
+  ggtitle("Density plots for LG values distribution") +
+  xlab("LG Values") +
+  ylab("Density")
+```
+
+```{r}
+ggplot(join_df, aes(x = rl_ad)) +
+  geom_histogram(aes(y = after_stat(density)), 
+                 binwidth = 0.5, 
+                 fill = "lightblue", 
+                 color = "black") +
+  geom_density(alpha = 0.2, fill = "blue") +
+  ggtitle("Density plots for RL_AD values distribution") +
+  xlab("RL_AD Values") +
+  ylab("Density")
+```
+
+```{r}
+
+join_df %>%
+  select(frags, rank, spawnfrags, damage_gvn, speed_avr,avg_ping) %>%  # Select specific columns
+  summary() %>%
+  knitr::kable(caption = "Game results summary") %>%
+  kableExtra::kable_styling()
+```
+
+```{r}
+ggplot(join_df, aes(x = frags)) +
+  geom_histogram(aes(y = after_stat(density)), 
+                 binwidth = 0.5, 
+                 fill = "lightblue", 
+                 color = "black") +
+  geom_density(alpha = 0.2, fill = "blue") +
+  ggtitle("Density plots for frags values distribution") +
+  xlab("Frags Values") +
+  ylab("Density")
+```
+
+```{r}
+ggplot(join_df, aes(x = rank)) +
+  geom_histogram(aes(y = after_stat(density)), 
+                 binwidth = 0.5, 
+                 fill = "lightblue", 
+                 color = "black") +
+  geom_density(alpha = 0.2, fill = "blue") +
+  ggtitle("Density plots for rank values distribution") +
+  xlab("Rank Values") +
+  ylab("Density")
+```
+
+```{r}
+join_df_sorted_head <- head(join_df[order(-join_df$lg), ], 10)
+gt1 <- join_df_sorted_head[c("player", "lg")] %>%
+  gt() %>%
+  tab_header(
+    title = "Statistics for all matches",
+    subtitle = "Top players by LG% in match"
+  ) %>%
+  fmt_number(decimals = 1) %>%
+  tab_style(
+    style = cell_fill(color = "lightgreen"),
+    locations = cells_body(columns = lg)
+  )
+
+join_df_sorted_head <- head(join_df[order(-join_df$rl_ad), ], 10)
+gt2 <- join_df_sorted_head[c("player", "rl_ad")] %>%
+  gt() %>%
+  tab_header(
+    title = "Statistics for all matches",
+    subtitle = "Top players by RL AD in match"
+  ) %>%
+  fmt_number(decimals = 1) %>%
+  tab_style(
+    style = cell_fill(color = "lightblue"),
+    locations = cells_body(columns = rl_ad)
+  )
+
+join_df_sorted_head <- head(join_df[order(-join_df$damage_gvn), ], 10)
+gt_damage_gvn <- join_df_sorted_head[c("player", "damage_gvn")] %>%
+  gt() %>%
+  tab_header(
+    title = "Statistics for all matches",
+    subtitle = "Top players by damage_gvn in match"
+  ) %>%
+  fmt_number(decimals = 1) %>%
+  tab_style(
+    style = cell_fill(color = "orange"),
+    locations = cells_body(columns = damage_gvn)
+  )
+
+join_df_sorted_head <- head(join_df[order(-join_df$spawnfrags), ], 10)
+gt_spawnfrags <- join_df_sorted_head[c("player", "spawnfrags")] %>%
+  gt() %>%
+  tab_header(
+    title = "Statistics for all matches",
+    subtitle = "Top players by spawnfrags in match"
+  ) %>%
+  fmt_number(decimals = 1) %>%
+  tab_style(
+    style = cell_fill(color = "yellow"),
+    locations = cells_body(columns = spawnfrags)
+  )
+
+join_df_sorted_head <- head(join_df[order(-join_df$speed_avr), ], 10)
+gt_speed_avr <- join_df_sorted_head[c("player", "speed_avr")] %>%
+  gt() %>%
+  tab_header(
+    title = "Statistics for all matches",
+    subtitle = "Top players by speed_avr in match"
+  ) %>%
+  fmt_number(decimals = 1) %>%
+  tab_style(
+    style = cell_fill(color = "cyan"),
+    locations = cells_body(columns = speed_avr)
+  )
+
+join_df_sorted_head <- head(join_df[order(-join_df$frags), ], 10)
+gt_frags <- join_df_sorted_head[c("player", "frags")] %>%
+  gt() %>%
+  tab_header(
+    title = "Statistics for all matches",
+    subtitle = "Top players by frags in match"
+  ) %>%
+  fmt_number(decimals = 1) %>%
+  tab_style(
+    style = cell_fill(color = "lightgreen"),
+    locations = cells_body(columns = frags)
+  )
+
+join_df_sorted_head <- head(join_df[order(-join_df$rank), ], 10)
+gt_rank <- join_df_sorted_head[c("player", "rank")] %>%
+  gt() %>%
+  tab_header(
+    title = "Statistics for all matches",
+    subtitle = "Top players by rank in match"
+  ) %>%
+  fmt_number(decimals = 1) %>%
+  tab_style(
+    style = cell_fill(color = "lightblue"),
+    locations = cells_body(columns = rank)
+  )
+```
+
+```{r}
+join_df_aggregated_lg <- aggregate(lg ~ player, data = join_df, FUN = mean)
+join_df_aggregated_lg_head <- head(join_df_aggregated_lg[order(-join_df_aggregated_lg$lg), ], 10)
+
+gt3 <- join_df_aggregated_lg_head %>%
+  gt() %>%
+  tab_header(
+    title = "Statistics for all matches",
+    subtitle = "Average LG% by players"
+  ) %>%
+  fmt_number(decimals = 1) %>%
+  tab_style(
+    style = cell_fill(color = "lightgreen"),
+    locations = cells_body(columns = lg)
+  )
+
+join_df_aggregated_rl_ad <- aggregate(rl_ad ~ player, data = join_df, FUN = mean)
+join_df_aggregated_rl_ad_head <- head(join_df_aggregated_rl_ad[order(-join_df_aggregated_rl_ad$rl_ad), ], 10)
+
+gt4 <- join_df_aggregated_rl_ad_head %>%
+  gt() %>%
+  tab_header(
+    title = "Statistics for all matches",
+    subtitle = "Average RL AD by players"
+  ) %>%
+  fmt_number(decimals = 1) %>%
+  tab_style(
+    style = cell_fill(color = "lightblue"),
+    locations = cells_body(columns = rl_ad)
+  )
+
+```
+
+# Statistics tables
+
+## Top players by weapon usage
+
+```{r}
+htmltools::div(
+  style = "display: flex; align-items: flex-start; gap: 20px;",
+  htmltools::div(style = "width: 50%;", gt1),
+  htmltools::div(style = "width: 50%;", gt2)
+)
+```
+
+## Top players by average weapon usage
+
+```{r}
+htmltools::div(
+  style = "display: flex; align-items: flex-start; gap: 20px;",
+  htmltools::div(style = "width: 50%;", gt3),
+  htmltools::div(style = "width: 50%;", gt4)
+)
+```
+
+## Top players by other stats
+
+```{r}
+htmltools::div(
+  style = "display: flex; align-items: flex-start; gap: 20px;",
+  htmltools::div(style = "width: 50%;", gt_frags),
+  htmltools::div(style = "width: 50%;", gt_rank)
+)
+htmltools::div(
+  style = "display: flex; align-items: flex-start; gap: 20px;",
+  htmltools::div(style = "width: 33%;", gt_damage_gvn),
+  htmltools::div(style = "width: 33%;", gt_spawnfrags),
+  htmltools::div(style = "width: 33%;", gt_speed_avr)
+)
+
+```
+
+# Numeric parameters correlation analysis  by  *The Pearson correlation coefficient* 
+
+```{r}
+
+join_df_numeric <- join_df[,c(4:14,18,19,20)]
+cor_matrix <- cor(join_df_numeric)
+melted_cor <- melt(cor_matrix)
+ggplot(melted_cor, aes(Var1, Var2, fill = value)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", midpoint = 0) +
+  theme(axis.text.x = element_text(angle = -90, hjust = 1, vjust = 0.5)) +
+  labs(
+    title    = "Correlation matrix for all numeric parameters in  matches",
+  )
+```
+
+Key observations:
+
+-   Obvious ones with high correlations:
+
+    -   damage_gvn,spawnfrags,rank,frags
+
+    -   avg_packetlost,avg_ping AND (sic!) ***speed_avr***
+
+    -   anti-lag feature has no impact at all (but the number of games with 1 relatively small)
+
+-   Interesting ones:
+
+    -   rl_ad almost **has nothing** to do with frags and ranks
+
+    -   lg has correlations with frags(rank,damage_gvn)
+
+    -   mh correlated with ya and frags(rank,damage_gvn)
+
+    -   negative rank highly correlated with GA
+
+```{r}
+
+join_df_numeric <- winners_df[,c(4:14,18,19,20)]
+cor_matrix <- cor(join_df_numeric)
+melted_cor <- melt(cor_matrix)
+ggplot(melted_cor, aes(Var1, Var2, fill = value)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", midpoint = 0) +
+  theme(axis.text.x = element_text(angle = -90, hjust = 1, vjust = 0.5)) +
+  labs(
+    title    = "Correlation matrix for all numeric parameters in win matches",
+  )
+```
+
+Key observations:
+
+-   Obvious ones with high correlations same with all matches:
+
+-   Interesting ones:
+
+    -   LG has negative correlation with RA almost **has nothing** to do with frags and ranks
+
+    -   RA has negative correlations with GA,YA
+
+    -   average ping and average speed has negative correlations with LG ya and frags(rank,damage_gvn)
+
+    -   negative rank highly correlated with GA
+
+```{r}
+
+join_df_numeric <- losers_df[,c(4:14,18,19,20)]
+cor_matrix <- cor(join_df_numeric)
+melted_cor <- melt(cor_matrix)
+ggplot(melted_cor, aes(Var1, Var2, fill = value)) +
+  geom_tile() +
+  scale_fill_gradient2(low = "blue", high = "red", mid = "white", midpoint = 0) +
+  theme(axis.text.x = element_text(angle = -90, hjust = 1, vjust = 0.5)) +
+  labs(
+    title    = "Correlation matrix for all numeric parameters in lost matches",
+  )
+```
+
+Key observations:
+
+-   Obvious ones with high correlations same with all matches:
+
+-   Interesting ones:
+
+    -   RL AD correlated with GA
+
+    -   YA, MH correlated with rank
+
+# Simple Analysis – QuakeWorld Aerowalk 1-on-1 Outcomes by AI KIMI K2
+
+### 0. TL;DR
+
+> **Whoever controls the** red armor (RA)\*\* and **mega health (MH)** wins.\*\*\
+> Ping, LG accuracy and raw speed are **far less predictive** than the **stack advantage** you create by denying the big items on the map.
+
+------------------------------------------------------------------------
+
+### 1. The Two Magic Numbers
+
+| Metric                | Winner (Avg) | Loser (Avg) | Δ        |
+|-----------------------|--------------|-------------|----------|
+| **Red Armor Taken**   | **13.2**     | **9.5**     | **+3.7** |
+| **Mega Health Taken** | **9.8**      | **5.9**     | **+3.9** |
+
+-   **The bigger the RA+MH gap, the bigger the frag difference**\
+    Pearson **r ≈ 0.71** between *(RA+MH)* and *(frag difference)*.
+
+------------------------------------------------------------------------
+
+### 2. What Did **Not** Matter Much
+
+| Variable               | Winner vs Loser    | Correlation with Frag Diff |
+|------------------------|--------------------|----------------------------|
+| **LG accuracy %**      | 30.7 % vs 29.4 %   | r ≈ 0.09 (weak)            |
+| **Average speed**      | 312 ups vs 312 ups | r ≈ 0.03                   |
+| **Average ping**       | 32 ms vs 32 ms     | r ≈ 0.02                   |
+| **RL skill (avg dmg)** | 75.4 vs 74.2       | r ≈ 0.05                   |
+
+Even when one player had 10–15 ms higher ping, the **stack differential still dominated** the scoreboard.
+
+------------------------------------------------------------------------
+
+### 3. Spawn Frag Luck vs Item Control
+
+-   Spawn frags (first frag of the round) **do not snowball**.
+    -   Winners averaged **2.8 spawn frags**; losers **1.5**.\
+    -   However, a spawn-frag lead **only translated to 1.3 extra frags on average** — far less than the **6+ frag swings** seen when RA/MH were lopsided.
+
+------------------------------------------------------------------------
+
+### 4. The “Stack-First, Aim-Second” Rule of Thumb
+
+| RA + MH ≥ 20         | RA + MH ≤ 12         |
+|----------------------|----------------------|
+| **W-L record: 47-3** | **W-L record: 3-47** |
+
+When a player secured **≥20 big items** (RA+MH) in the 10-minute game, they **won 94 % of the time**, regardless of LG % or raw movement speed.
+
+------------------------------------------------------------------------
+
+### 5. Mini Heat-Map (sample size = 83 games)
+
+| RA Taken | MH Taken | Avg Frag Diff |
+|----------|----------|---------------|
+| 15       | 12       | **+21**       |
+| 12       | 8        | **+9**        |
+| 9        | 5        | **-2**        |
+| 7        | 3        | **-18**       |
+
+------------------------------------------------------------------------
+
+### 6. Practical Take-away for Players
+
+1.  **Prioritise RA & MH timers above all else.**\
+2.  **Use LG/RL to secure the items, not to chase frags.**\
+3.  **Ping \< 60 ms and LG \> 25 % is “good enough”**; beyond that, **stack control is king**.
+
+> “Stack up, then open up.”
+
+# Analysis of QuakeWorld Aerowalk Match Data by DeepSeek R1 AI
+
+Based on the provided datasets, here's a concise analysis of key correlations between gameplay factors and match outcomes:
+
+1.  **Resource Control Dominance**\
+    Winners consistently collected **more armor and mega health**:
+    -   Avg mega health taken: **9.8** (winners) vs **7.0** (losers)\
+    -   Avg red armor taken: **12.1** vs **10.7**\
+    -   Avg yellow armor taken: **12.9** vs **9.8**\
+        *Implication: Map control and item timing are critical to victory.*
+2.  **Damage Efficiency**\
+    Winners dealt **significantly more damage** with better efficiency:
+    -   Avg damage given: **7,203** (winners) vs **5,623** (losers)\
+    -   Rocket Launcher skill damage: **75.2** vs **73.6**\
+        *Observation: Sustained high damage output outweighs accuracy metrics.*
+3.  **Movement Advantage**\
+    Winners maintained **slightly higher average speed**:
+    -   Avg movement speed: **312.7** vs **309.4**\
+        *Note: Speed difference is modest but consistent across matches.*
+4.  **Performance Disparity**\
+    Key outcome indicators:
+    -   Avg frag difference: **+15.2** (winners) vs **-19.3** (losers)\
+    -   Spawn frags: **3.1** vs **1.1**\
+        *Correlation: Early-round advantages (spawn frags) strongly predict wins.*
+5.  **Network Factors**
+    -   Winners had **lower average ping** (28.9 ms vs 31.2 ms)\
+    -   Packet loss showed **no consistent pattern** across outcomes\
+        *Insight: Network stability matters, but skill factors dominate.*
+
+### Winner vs Loser Comparison Table
+
+| Metric              | Winners | Losers | Difference |
+|---------------------|---------|--------|------------|
+| Mega Health Taken   | 9.8     | 7.0    | +40%       |
+| Red Armor Taken     | 12.1    | 10.7   | +13%       |
+| Damage Given        | 7,203   | 5,623  | +28%       |
+| Rocket Launcher Dmg | 75.2    | 73.6   | +2.2%      |
+| Avg Movement Speed  | 312.7   | 309.4  | +1.1%      |
+| Spawn Frags         | 3.1     | 1.1    | +182%      |
+
+### Key Conclusions
+
+-   **Resource Control** is the strongest predictor: Winners secured 40% more mega health and 13-15% more armor.
+-   **Damage Output \> Accuracy**: Rocket Launcher damage efficiency showed stronger correlation with wins than Lightning Gun accuracy.
+-   **Early Momentum Matters**: Spawn frags (kills immediately after respawn) were nearly 3x higher for winners.
+-   **Network Advantage**: While winners had slightly better ping (28.9ms vs 31.2ms), the difference was less significant than skill-based factors.
+
+### Strategic Recommendations
+
+1.  Prioritize mega health spawns (timed every 30 seconds)\
+2.  Trade weapon accuracy for sustained area damage\
+3.  Apply spawn pressure tactics after kills\
+4.  Optimize routes for armor stack maintenance
+
+*Note: Server versions (MVDSV) and client mods showed no measurable impact on outcomes when ping was comparable.*
